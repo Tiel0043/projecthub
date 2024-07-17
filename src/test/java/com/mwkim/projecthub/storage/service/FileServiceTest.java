@@ -1,2 +1,4 @@
-package com.mwkim.projecthub.storage.service;public class FileServiceTest {
+package com.mwkim.projecthub.storage.service;
+
+public class FileServiceTest {
 }

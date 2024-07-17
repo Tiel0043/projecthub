@@ -1,0 +1,20 @@
+spring:
+    application:
+        name: projecthub
+    datasource:
+        url: jdbc:mysql://localhost:3306/cloud_storage_db
+        username: root
+        password: 1234
+    jpa:
+        hibernate:
+          ddl-auto: create
+
+        properties:
+          hibernate:
+              dialect: org.hibernate.dialect.MySQL8Dialect
+              show_sql: true
+              format_sql: true
+
+file:
+    storage:
+        upload-dir=./uploads
