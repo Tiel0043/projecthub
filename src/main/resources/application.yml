@@ -1,10 +1,15 @@
 spring:
+    servlet:
+        multipart:
+            max-file-size: 100MB
+            max-request-size: 100MB
     application:
         name: projecthub
     datasource:
         url: jdbc:mysql://localhost:3306/cloud_storage_db
         username: root
         password: 1234
+        driver-class-name: com.mysql.cj.jdbc.Driver
     jpa:
         hibernate:
           ddl-auto: create
@@ -17,4 +22,4 @@ spring:
 
 file:
     storage:
-        upload-dir=./uploads
+        uploadDir: ./uploads

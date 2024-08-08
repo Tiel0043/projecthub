@@ -8,5 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface FileMetadataRepository extends JpaRepository<FileMetadata, Long> {
-    Optional<FileMetadata> findByStoredFilenameAAndUserId(String storedFileName, String userId); // PK 노출 방지
+    Optional<FileMetadata> findByStoredFilenameAndUserId(String storedFileName, String userId); // PK 노출 방지
 }

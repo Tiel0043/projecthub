@@ -1,12 +1,13 @@
 package com.mwkim.projecthub.storage.service;
 
 import com.mwkim.projecthub.storage.entity.FileMetadata;
-import com.mwkim.projecthub.storage.exception.FileNotFoundException;
 import com.mwkim.projecthub.storage.repository.FileMetadataRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.FileNotFoundException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -40,7 +41,7 @@ public class FileService {
         fileMetadata.setStoredFilename(storedFileName);
         fileMetadata.setContentType(file.getContentType());
         fileMetadata.setSize(file.getSize());
-        fileMetadata.setUploadDateTime(userId);
+        fileMetadata.setUserId(userId);
         fileMetadata.setUploadDateTime(LocalDateTime.now());
 
         FileMetadata savedMetadata = fileMetadataRepository.save(fileMetadata);
@@ -54,7 +55,7 @@ public class FileService {
      * @param userId         파일을 삭제하려는 사용자의 ID
      * @throws FileNotFoundException 파일이 존재하지 않거나 사용자에게 권한이 없는 경우
      */
-    public void deleteFile(String storedFileName, String userId) {
+    public void deleteFile(String storedFileName, String userId) throws FileNotFoundException{
         // 메타데이터 조회
         FileMetadata fileMetadata = getFileMetadata(storedFileName, userId);
 
@@ -65,10 +66,13 @@ public class FileService {
         fileMetadataRepository.delete(fileMetadata);
     }
 
-    public FileMetadata getFileMetadata(String storedFileName, String userId) {
-        Optional<FileMetadata> optionalFileMetadata = fileMetadataRepository.findByStoredFilenameAAndUserId(storedFileName, userId);
-        FileMetadata fileMetadata = optionalFileMetadata.orElseThrow(() -> new FileNotFoundException("File not found with name " + storedFileName));
+    public FileMetadata getFileMetadata(String storedFileName, String userId) throws FileNotFoundException{
 
+        Optional<FileMetadata> result = fileMetadataRepository.findByStoredFilenameAndUserId(storedFileName, userId);
+
+        return result.orElseThrow(() -> {
+            return new FileNotFoundException("File not found with name " + storedFileName);
+        });
     }
 
 }

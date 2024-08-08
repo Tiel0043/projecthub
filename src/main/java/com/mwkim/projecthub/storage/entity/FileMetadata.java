@@ -22,6 +22,9 @@ import java.time.LocalDateTime;
 @Table(name = "file_metadata")
 public class FileMetadata {
 
+    public FileMetadata() {
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

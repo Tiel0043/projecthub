@@ -31,7 +31,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FileStorageService {
 
-    private final Path fileStorageLocation;
+    private final Path fileStorageLocation; // 경로 설정
 
     @Autowired
     public FileStorageService(FileStorageProperties fileStorageProperties) {
@@ -85,7 +85,7 @@ public class FileStorageService {
             Path filePath = this.fileStorageLocation.resolve(storedFileName).normalize();
             Files.delete(filePath);
         } catch (IOException ex) {
-            throw new RuntimeException(storedFileName + "파일을 삭제할 수 없습니다.")
+            throw new RuntimeException(storedFileName + "파일을 삭제할 수 없습니다.");
         }
     }
 
