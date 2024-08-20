@@ -61,13 +61,32 @@ public class FileServiceTest {
     }
 
     @Test
-    @DisplayName("파일 삭제 테스트")
-    void deleteFile_Success() {
+    @DisplayName("파일 삭제 테스트 - 파일을 찾을 수 없음")
+    void deleteFile_FileNotFound() {
         // given
         when(fileMetadataRepository.findByStoredFilenameAndUserId(STORED_FILE_NAME, USER_ID))
                 .thenReturn(Optional.empty());
 
+        // when & then
         assertThrows(FileNotFoundException.class, () -> fileService.deleteFile(STORED_FILE_NAME, USER_ID));
+    }
+
+    @Test
+    @DisplayName("파일 삭제 테스트 - 성공")
+    void deleteFile_Success() {
+        // given
+        FileMetadata metadata = new FileMetadata();
+        metadata.setUserId(USER_ID);
+        metadata.setStoredFilename(STORED_FILE_NAME);
+        when(fileMetadataRepository.findByStoredFilenameAndUserId(STORED_FILE_NAME, USER_ID))
+                .thenReturn(Optional.of(metadata));
+
+        // when
+        assertDoesNotThrow(() -> fileService.deleteFile(STORED_FILE_NAME, USER_ID));
+
+        // then
+        verify(fileStorageService).deleteFile(STORED_FILE_NAME);
+        verify(fileMetadataRepository).delete(metadata);
     }
 
     @Test

@@ -1,10 +1,12 @@
 package com.mwkim.projecthub.storage.service;
 
 import com.mwkim.projecthub.storage.entity.FileMetadata;
+import com.mwkim.projecthub.storage.exception.UnauthorizedException;
 import com.mwkim.projecthub.storage.repository.FileMetadataRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.FileNotFoundException;
@@ -21,6 +23,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class FileService {
 
     private final FileMetadataRepository fileMetadataRepository;
@@ -34,7 +37,7 @@ public class FileService {
      * @return 저장된 파일의 메타데이터
      */
     public FileMetadata uploadFile(MultipartFile file, String userId) {
-        String storedFileName = fileStorageService.storeFile(file); // 파일 업로드
+        String storedFileName = fileStorageService.storeFile(file); // 물리적인 파일 저장
 
         FileMetadata fileMetadata = new FileMetadata();
         fileMetadata.setFilename(file.getOriginalFilename()); // 메타데이터는 DB에 저장되기에 정규화 필요X (사용자 구분)
@@ -55,18 +58,16 @@ public class FileService {
      * @param userId         파일을 삭제하려는 사용자의 ID
      * @throws FileNotFoundException 파일이 존재하지 않거나 사용자에게 권한이 없는 경우
      */
-    public void deleteFile(String storedFileName, String userId) throws FileNotFoundException{
-        // 메타데이터 조회
-        FileMetadata fileMetadata = getFileMetadata(storedFileName, userId);
+    public void deleteFile(String storedFileName, String userId) throws FileNotFoundException {
+        FileMetadata metadata = fileMetadataRepository.findByStoredFilenameAndUserId(storedFileName, userId)
+                .orElseThrow(() -> new FileNotFoundException("File not found: " + storedFileName));
 
-        // 파일 삭제
         fileStorageService.deleteFile(storedFileName);
-
-        // 파일 메타데이터 삭제
-        fileMetadataRepository.delete(fileMetadata);
+        fileMetadataRepository.delete(metadata);
     }
 
-    public FileMetadata getFileMetadata(String storedFileName, String userId) throws FileNotFoundException{
+    @Transactional(readOnly = true)
+    public FileMetadata getFileMetadata(String storedFileName, String userId) throws FileNotFoundException {
 
         Optional<FileMetadata> result = fileMetadataRepository.findByStoredFilenameAndUserId(storedFileName, userId);
 

@@ -1,11 +1,7 @@
 package com.mwkim.projecthub.storage.service;
 
 import com.mwkim.projecthub.storage.config.FileStorageProperties;
-import com.mwkim.projecthub.storage.entity.FileMetadata;
-import com.mwkim.projecthub.storage.repository.FileMetadataRepository;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,15 +24,19 @@ import java.util.UUID;
  */
 
 @Service
-@RequiredArgsConstructor
 public class FileStorageService {
 
-    private final Path fileStorageLocation; // 경로 설정
+    private final Path fileStorageLocation; // FileStorageService 초기화 시, 경로 보관
 
-    @Autowired
     public FileStorageService(FileStorageProperties fileStorageProperties) {
-
         // getUploadDir()을 통한 디렉토리 경로를 가져와 절대경로로 변환 후 정규화(불필요한 .이나 .. 제거)
+        // 파일명을 정규화하는 이유 : Directory Traversal
+        /*
+         ../../etc/shadow 같은 파일명이 들어온다면
+         new File("/var/www/uploads/" + fileName);을 다운받는다고 한다면
+         서버는 /var/www/uploads/../../../../etc/shadow 경로의 파일을 읽어 클라이언트에게 반환한다.
+         이는 /etc/shadow 파일에 접근해 시스템의 비밀번호 해시를 노출시킬 수 있다.
+         */
         this.fileStorageLocation = Paths.get(fileStorageProperties.getUploadDir()).toAbsolutePath().normalize();
         try {
             Files.createDirectories(this.fileStorageLocation); // 디렉토리가 없으면 생성
@@ -53,16 +53,8 @@ public class FileStorageService {
      * @throws RuntimeException 파일 저장 중 오류 발생 시
      */
     public String storeFile(MultipartFile file) {
-
-        // 파일명을 정규화하는 이유 : Directory Travarsal
-        /*
-         ../../etc/shadow 같은 파일명이 들어온다면
-         new File("/var/www/uploads/" + fileName);을 다운받는다고 한다면
-         서버는 /var/www/uploads/../../../../etc/shadow 경로의 파일을 읽어 클라이언트에게 반환한다.
-         이는 /etc/shadow 파일에 접근해 시스템의 비밀번호 해시를 노출시킬 수 있다.
-         */
         String fileName = StringUtils.cleanPath(file.getOriginalFilename());
-        String storedFileName = UUID.randomUUID().toString() + "_" + fileName; // 문자열 합치기..? 수정할지도
+        String storedFileName = UUID.randomUUID().toString() + "_" + fileName;
 
         try {
             Path targetLocation = this.fileStorageLocation.resolve(storedFileName); // 디렉토리 경로 + 파일명 ex) dir/file.md

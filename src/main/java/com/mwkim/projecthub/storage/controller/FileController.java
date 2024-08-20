@@ -28,7 +28,6 @@ public class FileController {
     @PostMapping("/upload")
     public ResponseEntity<FileMetadata> uploadFile(@RequestParam("file") MultipartFile file,
                                                    @RequestParam("userId") String userId) {
-        System.out.println("file = " + file.getOriginalFilename());
         FileMetadata fileMetadata = fileService.uploadFile(file, userId);
         return ResponseEntity.ok(fileMetadata);
     }
@@ -37,9 +36,8 @@ public class FileController {
     @DeleteMapping("/{storedFileName}")
     public ResponseEntity<Void> deleteFile(@PathVariable("storedFileName") String storedFileName,
                                            @RequestParam("userId") String userId) throws FileNotFoundException{
-        System.out.println("storedFileName = " + storedFileName);
         fileService.deleteFile(storedFileName, userId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 
     // 파일 다운로드 컨트롤러
@@ -47,18 +45,15 @@ public class FileController {
     public ResponseEntity<Resource> downloadFile(@PathVariable("storedFileName") String storedFileName,
                                                  @RequestParam("userId") String userId) throws FileNotFoundException {
 
-        FileMetadata fileMetadata = fileService.getFileMetadata(storedFileName, userId);
-
-        if (!fileMetadata.getUserId().equals(userId)) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
-        }
+        FileMetadata fileMetadata = fileService.getFileMetadata(storedFileName, userId); // 메타 데이터 조회
 
         Path filePath = fileStorageService.getFilePath(storedFileName);
 
         try {
             Resource resource = new UrlResource(filePath.toUri());
             return ResponseEntity.ok()
-                    .contentType(MediaType.parseMediaType(fileMetadata.getContentType()))
+//                    .contentType(MediaType.parseMediaType(fileMetadata.getContentType()))
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileMetadata.getFilename() + "\"")
                     .body(resource);
         } catch (Exception e) {

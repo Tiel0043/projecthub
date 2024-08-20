@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Mini Pay Service</title>
+    <script th:inline="javascript">
+        var baseUser = /*[[@{/minipay/users}]]*/ '';
+        var baseAccount = /*[[@{/minipay/accounts}]]*/ '';
+    </script>
+</head>
+<body>
+<h1>Mini Pay Service</h1>
+
+<h2>User Registration</h2>
+<form th:action="@{/minipay/users/register}" method="post">
+    <input type="text" name="username" placeholder="Username" required>
+    <button type="submit">Register</button>
+</form>
+
+<h2>Create Savings Account</h2>
+<form th:action="@{/minipay/users/{userId}/savings-account}" method="post">
+    <input type="number" name="userId" placeholder="User ID" required>
+    <button type="submit">Create Savings Account</button>
+</form>
+
+<h2>Deposit to Main Account</h2>
+<form th:action="@{/minipay/accounts/{accountId}/deposit(accountId=${accountId})}" method="post">
+    <input type="number" id="accountId" name="accountId" placeholder="Account ID" required>
+    <input type="number" name="amount" placeholder="Amount" step="0.01" required>
+    <button type="submit">Deposit</button>
+</form>
+
+<h2>Transfer</h2>
+<form th:action="@{${baseAccount} + '/transfer'}" method="post">
+    <input type="number" name="fromAccountId" placeholder="From Account ID" required>
+    <input type="number" name="toAccountId" placeholder="To Account ID" required>
+    <input type="number" name="amount" placeholder="Amount" step="0.01" required>
+    <button type="submit">Transfer</button>
+</form>
+
+<h2>Accounts</h2>
+<table>
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>User</th>
+        <th>Type</th>
+        <th>Balance</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:each="account : ${accounts}">
+        <td th:text="${account.id}"></td>
+        <td th:text="${account.user.username}"></td>
+        <td th:text="${account.type}"></td>
+        <td th:text="${account.balance}"></td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>
