@@ -35,9 +35,9 @@ public class AccountService {
 
         // 메인계좌와 적금 계좌는 다른 비즈니스 규칙을 가질 수 있기에 분리했다.
         // ex) 적금 계좌에서 메인 계좌로의 이체는 특정 조건(만기일 등)을 충족해야 할 수 있다.
-        if (fromAccount.getType() == AccountType.MAIN && toAccount.getType() == AccountType.MAIN) {
+        if (fromAccount.getType() == AccountType.MAIN && toAccount.getType() == AccountType.SAVINGS) {
             transferMainToSavings(fromAccount, toAccount, amount);
-        } else if (fromAccount.getType() == AccountType.SAVINGS && toAccount.getType() == AccountType.SAVINGS) {
+        } else if (fromAccount.getType() == AccountType.SAVINGS && toAccount.getType() == AccountType.MAIN) {
             transferSavingsToMain(fromAccount, toAccount, amount);
         } else {
             throw new IllegalStateException("Invalid transfer between account types");
@@ -58,7 +58,7 @@ public class AccountService {
         accountRepository.save(savingsAccount);
     }
 
-    // 적금계좌 -> 메인계좌
+
     private void transferSavingsToMain(Account savingsAccount, Account mainAccount, BigDecimal amount) {
         if (savingsAccount.getBalance().compareTo(amount) < 0) {
             throw new InsufficientFundsException("Insufficient funds in savings account");
