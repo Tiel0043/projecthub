@@ -1,4 +1,4 @@
-package com.mwkim.projecthub.minipay.entity;
+package com.mwkim.projecthub.minipay.enums;
 
 public enum AccountType {
     MAIN, SAVINGS

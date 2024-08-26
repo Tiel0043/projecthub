@@ -1,112 +1,143 @@
 package com.mwkim.projecthub.minipay.service;
 
 import com.mwkim.projecthub.minipay.entity.Account;
-import com.mwkim.projecthub.minipay.entity.AccountType;
 import com.mwkim.projecthub.minipay.entity.DailyLimit;
-import com.mwkim.projecthub.minipay.exception.AccountNotFoundException;
-import com.mwkim.projecthub.minipay.exception.DailyLimitExceedException;
-import com.mwkim.projecthub.minipay.exception.InsufficientFundsException;
+import com.mwkim.projecthub.minipay.entity.Transaction;
+import com.mwkim.projecthub.minipay.entity.User;
+import com.mwkim.projecthub.minipay.enums.AccountType;
+import com.mwkim.projecthub.minipay.exception.custom.AccountNotFoundException;
+import com.mwkim.projecthub.minipay.exception.custom.InvalidAccountTypeException;
 import com.mwkim.projecthub.minipay.repository.AccountRepository;
-import com.mwkim.projecthub.minipay.repository.DailyLimitRepository;
+import com.mwkim.projecthub.minipay.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.math.RoundingMode;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
+@Slf4j
 public class AccountService {
 
-    private final AccountRepository accountRepository;
-    private final DailyLimitRepository dailyLimitRepository;
-    private final TransactionTemplate transactionTemplate;
+    // 일일 한도 금액 300만원, 자동 충전은 1만원 단위로 한다.
+    private static final BigDecimal DAILY_WITHDRAWAL_LIMIT = new BigDecimal("3000000");
+    private static final BigDecimal AUTO_CHARGE_UNIT = new BigDecimal("10000");
 
-    // 한 트랜잭션 내에서 동일한 결과를 보장하지만, 새로운 레코드가 추가되면 부정합이 생길 수 있다.(Phantom Read가능)
+    private final AccountRepository accountRepository;
+    private final DailyLimitService dailyLimitService;
+    private final TransactionRepository transactionRepository;
+
+    // 메인계좌 생성
+    public Account createMainAccount(User user) {
+        log.info("계좌 생성!");
+        DailyLimit dailyLimit = DailyLimit.builder().build();
+
+        Account account = Account.builder()
+                .user(user)
+                .type(AccountType.MAIN)
+                .dailyLimit(dailyLimit)
+                .build();
+        user.addAccount(account);
+        return accountRepository.save(account);
+    }
+
+    // 적금계좌 생성
+    public Account createSavingsAccount(User user) {
+        Account account = Account.builder()
+                .user(user)
+                .type(AccountType.SAVINGS)
+                .build();
+
+        user.addAccount(account);
+        return accountRepository.save(account);
+    }
+
+
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public void transfer(Long fromAccountId, Long toAccountId, BigDecimal amount) {
-        Account fromAccount = accountRepository.findById(fromAccountId)
-                .orElseThrow(() -> new AccountNotFoundException("From account not found"));
-        Account toAccount = accountRepository.findById(toAccountId)
-                .orElseThrow(() -> new AccountNotFoundException("To account not found"));
 
-        // 메인계좌와 적금 계좌는 다른 비즈니스 규칙을 가질 수 있기에 분리했다.
-        // ex) 적금 계좌에서 메인 계좌로의 이체는 특정 조건(만기일 등)을 충족해야 할 수 있다.
-        if (fromAccount.getType() == AccountType.MAIN && toAccount.getType() == AccountType.SAVINGS) {
-            transferMainToSavings(fromAccount, toAccount, amount);
-        } else if (fromAccount.getType() == AccountType.SAVINGS && toAccount.getType() == AccountType.MAIN) {
-            transferSavingsToMain(fromAccount, toAccount, amount);
-        } else {
-            throw new IllegalStateException("Invalid transfer between account types");
-        }
+        try{
+            Account fromAccount = getAccountById(fromAccountId);
+            Account toAccount = getAccountById(toAccountId);
 
-    }
+            // totalAmount : 충전 된 금액
+            BigDecimal totalAmount = ensureSufficientBalance(fromAccount, amount);
 
-    // 메인계좌 -> 적금 계좌
-    private void transferMainToSavings(Account mainAccount, Account savingsAccount, BigDecimal amount) {
-        if (mainAccount.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientFundsException("Insufficient funds in main account");
-        }
-
-        mainAccount.setBalance(mainAccount.getBalance().subtract(amount)); // 메인계좌 - 금액
-        savingsAccount.setBalance(savingsAccount.getBalance().add(amount)); // 적금계좌 + 금액
-
-        accountRepository.save(mainAccount);
-        accountRepository.save(savingsAccount);
-    }
-
-
-    private void transferSavingsToMain(Account savingsAccount, Account mainAccount, BigDecimal amount) {
-        if (savingsAccount.getBalance().compareTo(amount) < 0) {
-            throw new InsufficientFundsException("Insufficient funds in savings account");
-        }
-
-        savingsAccount.setBalance(savingsAccount.getBalance().subtract(amount));
-        mainAccount.setBalance(mainAccount.getBalance().add(amount));
-
-        accountRepository.save(savingsAccount);
-        accountRepository.save(mainAccount);
-    }
-
-    // 메인계좌 예금
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    public BigDecimal depositToMain(Long accountId, BigDecimal amount) {
-        return transactionTemplate.execute(status -> {
-            // 계좌 조회
-            Account account = accountRepository.findById(accountId).
-                    orElseThrow(() -> new AccountNotFoundException("Account not found"));
-
-            // 계좌 유형 검증
-            if (account.getType() != AccountType.MAIN) {
-                throw new IllegalArgumentException("Deposit is only allowed to main account");
+            // 일일 한도 검사
+            if (fromAccount.isMainAccount()) {
+                dailyLimitService.checkAndUpdateLimit(fromAccount, totalAmount);
             }
 
-            // 계좌 일일 한도 조회, 없으면 새로운 객체 생성
-            DailyLimit dailyLimit = dailyLimitRepository.findByUserAndDate(account.getUser(), LocalDate.now())
-                    .orElse(new DailyLimit(null, account.getUser(), LocalDate.now(), BigDecimal.ZERO));
-
-            // 일일 한도 확인
-            BigDecimal newUsedAmount = dailyLimit.getUsedAmount().add(amount);
-            if (newUsedAmount.compareTo(new BigDecimal("3000000")) > 0) {
-                throw new DailyLimitExceedException("Daily deposit limit exceed");
-            }
-
-            account.setBalance(account.getBalance().add(amount));
-            accountRepository.save(account);
-
-            dailyLimit.setUsedAmount(newUsedAmount);
-            dailyLimitRepository.save(dailyLimit);
-
-            return account.getBalance(); // transactionTemplate이 제네릭<T> 반환을 요구하기에 null 리턴
-        });
+            executeTransfer(fromAccount, toAccount, amount);
+            recordTransaction(fromAccount, toAccount, amount);
+        } catch (OptimisticLockingFailureException e) {
+        // 재시도 로직 또는 예외 처리
+        log.error("Optimistic locking failed", e);
+        throw new RuntimeException("Transfer failed due to concurrent modification");
     }
 
-    @Transactional(readOnly = true)
-    public Account getAccount(Long accountId) {
+
+    }
+
+
+    public Account getAccountById(Long accountId) {
         return accountRepository.findById(accountId)
-                .orElseThrow(() -> new AccountNotFoundException("Account not found with id: " + accountId));
+                .orElseThrow(() -> new AccountNotFoundException("계좌를 찾을 수 없습니다: " + accountId));
     }
+
+    // 계좌 자동충전
+    private BigDecimal ensureSufficientBalance(Account account, BigDecimal amount) {
+        BigDecimal balance = account.getBalance();
+        if (balance.compareTo(amount) < 0) {
+            BigDecimal chargeAmount = calculateChargeAmount(amount.subtract(balance));
+            account.deposit(chargeAmount);
+            log.info("자동 충전: {}원", chargeAmount);
+            return amount.add(chargeAmount);
+        }
+        return amount;
+    }
+
+    private BigDecimal calculateChargeAmount(BigDecimal neededAmount) {
+        // 올림 처리해서 10,000원씩 충전
+        return neededAmount.divide(new BigDecimal("10000"), 0, RoundingMode.UP)
+                .multiply(new BigDecimal("10000"));
+    }
+
+    private void executeTransfer(Account fromAccount, Account toAccount, BigDecimal amount) {
+        fromAccount.withdraw(amount);
+        toAccount.deposit(amount);
+        accountRepository.save(fromAccount);
+        accountRepository.save(toAccount);
+    }
+
+    private void recordTransaction(Account fromAccount, Account toAccount, BigDecimal amount) {
+        Transaction transaction = Transaction.builder()
+                .fromAccount(fromAccount)
+                .toAccount(toAccount)
+                .amount(amount)
+                .build();
+        transactionRepository.save(transaction);
+    }
+
+    // 메인계좌에서 적금계좌로 이체
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
+    public void transferToSavings(Long mainAccountId, Long savingsAccountId, BigDecimal amount) {
+        Account mainAccount = accountRepository.findById(mainAccountId)
+                .orElseThrow(() -> new AccountNotFoundException("메인 계좌를 찾을 수 없습니다."));
+        Account savingsAccount = accountRepository.findById(savingsAccountId)
+                .orElseThrow(() -> new AccountNotFoundException("적금 계좌를 찾을 수 없습니다."));
+
+        if (mainAccount.getType() != AccountType.MAIN || savingsAccount.getType() != AccountType.SAVINGS) {
+            throw new InvalidAccountTypeException("올바른 계좌 유형이 아닙니다.");
+        }
+
+        transfer(mainAccountId, savingsAccountId, amount);
+    }
+
 }

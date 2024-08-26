@@ -1,8 +1,8 @@
 package com.mwkim.projecthub.minipay.repository;
 
 import com.mwkim.projecthub.minipay.entity.Account;
-import com.mwkim.projecthub.minipay.entity.AccountType;
 import com.mwkim.projecthub.minipay.entity.User;
+import com.mwkim.projecthub.minipay.enums.AccountType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

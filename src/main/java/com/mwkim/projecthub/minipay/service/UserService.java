@@ -1,16 +1,12 @@
 package com.mwkim.projecthub.minipay.service;
 
 import com.mwkim.projecthub.minipay.entity.Account;
-import com.mwkim.projecthub.minipay.entity.AccountType;
+import com.mwkim.projecthub.minipay.entity.DailyLimit;
 import com.mwkim.projecthub.minipay.entity.User;
-import com.mwkim.projecthub.minipay.exception.UserNotFoundException;
-import com.mwkim.projecthub.minipay.repository.AccountRepository;
 import com.mwkim.projecthub.minipay.repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
@@ -18,31 +14,20 @@ import java.math.BigDecimal;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final AccountRepository accountRepository;
+    private final AccountService accountService;
 
-    public User registerUser(String username) {
-        User user = new User();
-        user.setUsername(username);
+    public User createUser(String username, String email) {
+
+        User user = User.builder()
+                .username(username)
+                .build();
+
         user = userRepository.save(user);
 
-        Account mainAccount = new Account();
-        mainAccount.setUser(user);
-        mainAccount.setType(AccountType.MAIN);
-        mainAccount.setBalance(BigDecimal.ZERO);
-        accountRepository.save(mainAccount);
+        Account mainAccount = accountService.createMainAccount(user);
+        user.addAccount(mainAccount);
 
         return user;
-    }
-
-    public Account createSavingsAccount(Long userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        Account savingsAccount = new Account();
-        savingsAccount.setUser(user);
-        savingsAccount.setType(AccountType.SAVINGS);
-        savingsAccount.setBalance(BigDecimal.ZERO);
-        return accountRepository.save(savingsAccount);
     }
 
 }

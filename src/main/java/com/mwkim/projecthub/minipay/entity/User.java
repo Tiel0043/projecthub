@@ -1,28 +1,38 @@
 package com.mwkim.projecthub.minipay.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@NoArgsConstructor
-@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
-@Setter
 public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(unique = true)
     private String username;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<Account> accounts; // 사용자가 보유한 계좌 목록
+    private List<Account> accounts = new ArrayList<>();
 
+    public List<Account> getAccounts() {
+        return accounts;
+    }
+
+    // 연관관계 편의 메소드
+    public void addAccount(Account account) {
+        this.accounts.add(account);
+        account.addUser(this);
+    }
+
+    @Builder
+    public User(Long id, String username) {
+        this.id = id;
+        this.username = username;
+    }
 }
