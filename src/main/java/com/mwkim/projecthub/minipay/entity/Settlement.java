@@ -1,59 +1,55 @@
 package com.mwkim.projecthub.minipay.entity;
 
-import com.mwkim.projecthub.minipay.enums.SettlementStatus;
+import com.mwkim.projecthub.minipay.enums.AccountType;
+import com.mwkim.projecthub.minipay.enums.SettlementType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class Settlement { // 전체 정산 정보
-
+public class Settlement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private BigDecimal totalAmount; // 총 금액
-    private LocalDateTime createdAt;
-
-    @Enumerated(EnumType.STRING)
-    private SettlementStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by")
-    private User createdBy;
+    @JoinColumn(name = "requester_id")
+    private User requester;
 
+    private BigDecimal totalAmount;
 
-    @OneToMany(mappedBy = "settlement", cascade = CascadeType.ALL)
-    private List<SettlementItem> items = new ArrayList<>();
+    @Enumerated(EnumType.STRING)
+    private SettlementType type; // 균등정산 or 랜덤 정산
+
+    @OneToMany(mappedBy = "settlement", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SettlementParticipant> participants = new ArrayList<>();
 
     @Builder
-    public Settlement(User createdBy, BigDecimal totalAmount) {
-        this.createdBy = createdBy;
+    public Settlement(User requester, BigDecimal totalAmount, SettlementType type) {
+        this.requester = requester;
         this.totalAmount = totalAmount;
-        this.status = SettlementStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
+        this.type = type;
     }
 
-    // 연관관계 편의 메소드
-    public void addItem(SettlementItem item) {
-        this.items.add(item);
-        item.addSettlement(this);
+    public void addParticipant(SettlementParticipant participant) {
+        this.participants.add(participant);
+        participant.addSettlement(this);
     }
 
-    public void complete() {
-        this.status = SettlementStatus.COMPLETED;
+    // factory-method
+    public static Settlement createSettlement(User requester, BigDecimal totalAmount, SettlementType type) {
+        return Settlement.builder()
+                .requester(requester)
+                .totalAmount(totalAmount)
+                .type(type)
+                .build();
     }
-
-    public void cancel() {
-        this.status = SettlementStatus.CANCELLED;
-    }
-
 }
+

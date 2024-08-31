@@ -1,5 +1,7 @@
 package com.mwkim.projecthub.minipay.entity;
 
+import com.mwkim.projecthub.minipay.enums.SettlementParticipantStatus;
+import com.mwkim.projecthub.minipay.enums.SettlementType;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -11,8 +13,7 @@ import java.math.BigDecimal;
 @Entity
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class SettlementItem { // 참여자 별 정산 항목
-
+public class SettlementParticipant {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,21 +27,33 @@ public class SettlementItem { // 참여자 별 정산 항목
     private User user;
 
     private BigDecimal amount;
-    private boolean isPaid;
+
+    @Enumerated(EnumType.STRING)
+    private SettlementParticipantStatus status;
 
     @Builder
-    public SettlementItem(User user, BigDecimal amount) {
+    public SettlementParticipant(User user, BigDecimal amount) {
         this.user = user;
         this.amount = amount;
-        this.isPaid = false;
+        this.status = SettlementParticipantStatus.PENDING;
     }
 
     public void addSettlement(Settlement settlement) {
         this.settlement = settlement;
     }
 
-    public void markAsPaid() {
-        this.isPaid = true;
+    public void approve() {
+        this.status = SettlementParticipantStatus.APPROVED;
     }
 
+    public void reject() {
+        this.status = SettlementParticipantStatus.REJECTED;
+    }
+
+    public static Settlement SettlementParticipant(User user, BigDecimal amount) {
+        return Settlement.builder()
+                .requester(user)
+                .totalAmount(amount)
+                .build();
+    }
 }

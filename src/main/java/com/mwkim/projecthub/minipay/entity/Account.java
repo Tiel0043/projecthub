@@ -1,17 +1,26 @@
 package com.mwkim.projecthub.minipay.entity;
 
+
 import com.mwkim.projecthub.minipay.enums.AccountType;
+import com.mwkim.projecthub.minipay.exception.custom.DailyLimitExceedException;
 import com.mwkim.projecthub.minipay.exception.custom.InsufficientBalanceException;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.AccessLevel;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+
+import javax.naming.LimitExceededException;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Account {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -23,48 +32,58 @@ public class Account {
     @Enumerated(EnumType.STRING)
     private AccountType type;
 
-    // 계좌 별 일일 한도
-    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "daily_limit_id")
-    private DailyLimit dailyLimit;
-
     private BigDecimal balance;
 
-    // 낙관적 락
-    @Version
-    private Long version;
+    private BigDecimal dailyLimitAmount;
 
+    private BigDecimal dailyUseAmount; // 매번 출금 내역을 DB에서 조회해 합산하는 것보다, 메모리에 누적액을 유지하자.
 
-    // 예금
-    public void deposit(BigDecimal amount) {
-        this.balance = this.balance.add(amount);
-    }
+    private LocalDateTime lastWithdrawalReset; // 마지막 리셋 시간
 
-    // 출금
-    public void withdraw(BigDecimal amount) {
-        if (this.balance.compareTo(amount) < 0) {
-            throw new InsufficientBalanceException("잔액이 부족합니다.");
-        }
-        this.balance = this.balance.subtract(amount);
-    }
-
-    // 주계좌 인지 확인
-    public boolean isMainAccount() {
-        return this.type == AccountType.MAIN;
-    }
-
-
-    void addUser(User user) {
-        this.user = user;
-    }
+    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Transaction> transactions = new ArrayList<>();
 
     @Builder
-    public Account(Long id, User user, AccountType type, DailyLimit dailyLimit, BigDecimal balance, Long version) {
+    public Account(Long id, AccountType type, BigDecimal balance, BigDecimal dailyLimitAmount) {
         this.id = id;
-        this.user = user;
         this.type = type;
-        this.dailyLimit = dailyLimit;
-        this.balance = balance != null ? balance : BigDecimal.ZERO;  // 기본값 설정
-        this.version = version;
+        this.balance = balance;
+        this.dailyLimitAmount = dailyLimitAmount;
+        this.dailyUseAmount = BigDecimal.ZERO;
+        this.lastWithdrawalReset = LocalDateTime.now();
+    }
+
+
+    public void addTransaction(Transaction transaction) {
+        this.transactions.add(transaction);
+        transaction.addAccount(this);
+    }
+
+    // factory-method
+    public static Account createAccount(User user, AccountType type, BigDecimal balance, BigDecimal dailyLimitAmount) {
+        Account account = Account.builder()
+                .type(type)
+                .balance(balance)
+                .dailyLimitAmount(dailyLimitAmount)
+                .build();
+
+        account.addUser(user);
+        return account;
+    }
+
+    public void addUser(User user) {
+        this.user = user;
+    }
+
+    public void updateDailyUseAmount(BigDecimal amouont) {
+        this.dailyLimitAmount = amouont;
+    }
+
+    public void updateLastWithdrawalReset(LocalDateTime time) {
+        this.lastWithdrawalReset = time;
+    }
+
+    public void updateBalance(BigDecimal balance) {
+        this.balance = balance;
     }
 }

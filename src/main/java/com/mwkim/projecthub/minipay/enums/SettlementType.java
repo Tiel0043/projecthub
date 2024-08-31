@@ -1,5 +1,5 @@
 package com.mwkim.projecthub.minipay.enums;
 
-public enum SettlementMethod {
+public enum SettlementType {
     EQUAL, RANDOM
 }
