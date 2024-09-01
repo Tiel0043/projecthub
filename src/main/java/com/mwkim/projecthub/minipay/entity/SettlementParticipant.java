@@ -50,10 +50,10 @@ public class SettlementParticipant {
         this.status = SettlementParticipantStatus.REJECTED;
     }
 
-    public static Settlement SettlementParticipant(User user, BigDecimal amount) {
-        return Settlement.builder()
-                .requester(user)
-                .totalAmount(amount)
+    public static SettlementParticipant createSettlementParticipant(User user, BigDecimal amount) {
+        return SettlementParticipant.builder()
+                .user(user)
+                .amount(amount)
                 .build();
     }
 }

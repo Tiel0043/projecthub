@@ -32,9 +32,10 @@ public class Settlement {
     private List<SettlementParticipant> participants = new ArrayList<>();
 
     @Builder
-    public Settlement(User requester, BigDecimal totalAmount, SettlementType type) {
+    public Settlement(User requester, BigDecimal totalAmount, SettlementType type, List<SettlementParticipant> participants) {
         this.requester = requester;
         this.totalAmount = totalAmount;
+        this.participants = participants;
         this.type = type;
     }
 

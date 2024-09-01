@@ -42,7 +42,7 @@ public class Transaction {
         this.type = type;
         this.amount = amount;
         this.description = description;
-        this.transactionDate = LocalDateTime.now();
+        this.transactionDate = LocalDateTime.now().plusDays(1);
         this.status = TransactionStatus.PENDING;
     }
 

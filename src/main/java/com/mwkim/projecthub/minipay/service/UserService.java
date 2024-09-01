@@ -5,6 +5,7 @@ import com.mwkim.projecthub.minipay.entity.User;
 import com.mwkim.projecthub.minipay.enums.AccountType;
 import com.mwkim.projecthub.minipay.exception.custom.UserAlreadyExistsException;
 import com.mwkim.projecthub.minipay.exception.custom.UserNotFoundException;
+import com.mwkim.projecthub.minipay.repository.AccountRepository;
 import com.mwkim.projecthub.minipay.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,7 @@ import java.util.List;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final AccountService accountService;
+    private final AccountRepository accountRepository;
 
     // id로 회원 조히
     public User getUserById(Long userId) {
@@ -41,7 +42,7 @@ public class UserService {
         user = userRepository.save(user);
 
         // 메인 계좌 자동 생성
-        accountService.createAccount(user.getId(), AccountType.MAIN, new BigDecimal("3000000"));
+//        accountService.createAccount(user.getId(), AccountType.MAIN, new BigDecimal("3000000"));
         return user;
     }
 
